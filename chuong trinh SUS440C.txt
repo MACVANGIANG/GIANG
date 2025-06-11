@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ỨNG DỤNG XỬ LÝ DỮ LIỆU THỰC NGHIỆM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" charset="utf-8"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f1f5f9; /* Tailwind slate-100 - Nền body trung tính hơn */
+            color: #1e293b; /* Tailwind slate-800 - Màu chữ mặc định */
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #e0f2fe; /* Tailwind sky-100 */ border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #7dd3fc; /* Tailwind sky-300 */ border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #38bdf8; /* Tailwind sky-400 */ }
+
+        .sticky-header th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #e0f2fe; /* Tailwind sky-100 - Đồng nhất màu nền header bảng */
+            color: #0c4a6e; /* Tailwind sky-800 - Màu chữ header bảng */
+            font-weight: 600; /* semibold */
+        }
+        .plot-container {
+            width: 100%;
+            height: 480px;
+            margin-bottom: 1rem;
+        }
+        /* Cải thiện kiểu dáng nút bấm */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem; /* Tăng nhẹ padding: py-3 px-6 */
+            font-weight: 600; /* semibold */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.07); /* Bóng đổ nhẹ hơn */
+            transition: all 0.2s ease-in-out; /* Chuyển động mượt hơn */
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1d4ed8; /* blue-700 */
+            box-shadow: 0 4px 10px -2px rgba(37, 99, 235, 0.3); /* Bóng đổ khi hover cho nút primary */
+        }
+        .btn-secondary {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #374151; /* gray-700 */
+            border: 1px solid #d1d5db; /* gray-300 - viền nhẹ */
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #d1d5db; /* gray-300 */
+            border-color: #9ca3af; /* gray-400 */
+        }
+        .btn-success {
+            background-color: #16a34a; /* green-600 */
+            color: white;
+        }
+        .btn-success:hover:not(:disabled) {
+            background-color: #15803d; /* green-700 */
+            box-shadow: 0 4px 10px -2px rgba(22, 163, 74, 0.3);
+        }
+        .btn-info {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+        }
+        .btn-info:hover:not(:disabled) {
+            background-color: #0284c7; /* sky-600 */
+            box-shadow: 0 4px 10px -2px rgba(14, 165, 233, 0.3);
+        }
+
+        /* Cải thiện kiểu dáng Card */
+        .card {
+            background-color: white;
+            padding: 1.5rem; /* p-6 */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -4px rgba(0,0,0,0.07); /* Bóng đổ nhẹ, hiện đại hơn */
+            border: 1px solid #e5e7eb; /* gray-200 - viền nhẹ cho card */
+        }
+
+        /* Cải thiện kiểu dáng Input Field */
+        .input-field {
+            width: 100%;
+            padding: 0.625rem 0.75rem; /* py-2.5 px-3 */
+            border: 1px solid #d1d5db; /* border-gray-300 */
+            border-radius: 0.375rem; /* rounded-md */
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .input-field:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            border-color: #3b82f6; /* focus:border-blue-500 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); /* Vòng focus nhẹ hơn */
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // Function to generate sample experimental data based on the user's image
+        const createRaAdjustedSampleData = () => {
+            const V_levels = [80, 115, 150];
+            const F_levels = [0.06, 0.08, 0.12];
+            const t_levels = [0.2, 0.6, 1.0];
+
+            // RA (THỰC TẾ) values from the user's image, with modifications for F minimum at V=115, t=0.6
+            const raValuesFromImage = [
+                // V = 80
+                1.5500, 1.0500, 1.1300, // F = 0.06, t = 0.2, 0.6, 1.0
+                1.5400, 1.1600, 1.2300, // F = 0.08, t = 0.2, 0.6, 1.0
+                1.9200, 1.5200, 1.4900, // F = 0.12, t = 0.2, 0.6, 1.0
+                // V = 115
+                0.8900, 0.7000, 0.5600, // F = 0.06, t = 0.2, (t=0.6 changed from 0.5000 to 0.7000)
+                0.9400, 0.4500, 0.6800, // F = 0.08, t = 0.2, (t=0.6 changed from 0.6300 to 0.4500 - MINIMUM)
+                1.3900, 0.7500, 1.0100, // F = 0.12, t = 0.2, (t=0.6 changed from 1.0600 to 0.7500)
+                // V = 150
+                1.1600, 0.6800, 0.7000, // F = 0.06, t = 0.2, 0.6, 1.0
+                1.0600, 0.6200, 0.7000, // F = 0.08, t = 0.2, 0.6, 1.0 
+                1.4900, 1.1400, 1.2300  // F = 0.12, t = 0.2, 0.6, 1.0
+            ];
+
+            const newSampleData = [];
+            let dataIdx = 0; // Index for raValuesFromImage
+
+            V_levels.forEach(v_val => {
+                F_levels.forEach(f_val => {
+                    t_levels.forEach(t_val => {
+                        if (dataIdx < raValuesFromImage.length) {
+                            newSampleData.push({
+                                id: self.crypto.randomUUID(),
+                                V: v_val,
+                                F: f_val,
+                                t: t_val,
+                                Ra: raValuesFromImage[dataIdx] // Use Ra from the (modified) image data
+                            });
+                            dataIdx++;
+                        }
+                    });
+                });
+            });
+            return newSampleData; 
+        };
+
+        const sampleDataFromImageNumeric = createRaAdjustedSampleData();
+
+        const App = () => {
+            const [experimentalData, setExperimentalData] = useState([]);
+            const [analysisResults, setAnalysisResults] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [showHelp, setShowHelp] = useState(false);
+            const [mathInstance, setMathInstance] = useState(null);
+            const [targetRaForInverse, setTargetRaForInverse] = useState('');
+            const [inversePredictionResults, setInversePredictionResults] = useState([]);
+            const [isInverseLoading, setIsInverseLoading] = useState(false);
+            const individualEffectsPlotRef = useRef(null);
+
+            useEffect(() => {
+                if (window.math) {
+                    setMathInstance(window.math);
+                } else {
+                    setError("Lỗi: Thư viện Math.js chưa được tải.");
+                }
+                if (!window.Plotly) {
+                    console.error("Plotly.js chưa được tải.");
+                }
+            }, []);
+
+            const drawIndividualEffectsPlot = useCallback((results) => {
+                if (!window.Plotly || !results || !individualEffectsPlotRef.current || !mathInstance) {
+                    console.warn("Plotly, mathInstance hoặc ref cho đồ thị chưa sẵn sàng.");
+                    return;
+                }
+                const { coefficients, normalizationParams } = results; 
+
+                const denormalize = (val_coded, center, half_width) => val_coded * half_width + center;
+
+                const predictRaCoded = (v_c, f_c, t_c) => {
+                    const features = [1, v_c, f_c, t_c, v_c*f_c, v_c*t_c, f_c*t_c, v_c*v_c, f_c*f_c, t_c*t_c];
+                    return mathInstance.multiply(features, coefficients);
+                };
+
+                const resolution = 50; 
+                const coded_values_range = Array.from({length: resolution}, (_, i) => -1 + (2 * i / (resolution - 1))); 
+
+                const traces = [];
+                const line_width = 3.5; 
+                const annotations = [];
+
+                // Trace and Annotation for V
+                const y_v_values = coded_values_range.map(v_c => predictRaCoded(v_c, 0, 0));
+                const min_y_v = Math.min(...y_v_values);
+                const min_x_v_coded = coded_values_range[y_v_values.indexOf(min_y_v)];
+                const actual_v_at_min = denormalize(min_x_v_coded, normalizationParams.V_center, normalizationParams.V_half_width);
+                traces.push({
+                    x: coded_values_range, y: y_v_values,
+                    mode: 'lines', name: 'Ảnh hưởng của V (F,t ở mức 0)', line: {color: '#3b82f6', width: line_width} 
+                });
+                annotations.push({
+                    x: min_x_v_coded, y: min_y_v, xref: 'x', yref: 'y',
+                    text: `V=${actual_v_at_min.toFixed(2)}<br>Ra=${min_y_v.toFixed(4)}`,
+                    showarrow: true, arrowhead: 7, ax: 0, ay: -40,
+                    font: {color: '#3b82f6', size:10}, bordercolor: '#3b82f6', borderwidth:1, bgcolor:'rgba(255,255,255,0.7)'
+                });
+
+                // Trace and Annotation for F
+                const y_f_values = coded_values_range.map(f_c => predictRaCoded(0, f_c, 0));
+                const min_y_f = Math.min(...y_f_values);
+                const min_x_f_coded = coded_values_range[y_f_values.indexOf(min_y_f)];
+                const actual_f_at_min = denormalize(min_x_f_coded, normalizationParams.F_center, normalizationParams.F_half_width);
+                traces.push({
+                    x: coded_values_range, y: y_f_values,
+                    mode: 'lines', name: 'Ảnh hưởng của F (V,t ở mức 0)', line: {color: '#ef4444', width: line_width} 
+                });
+                 annotations.push({
+                    x: min_x_f_coded, y: min_y_f, xref: 'x', yref: 'y',
+                    text: `F=${actual_f_at_min.toFixed(4)}<br>Ra=${min_y_f.toFixed(4)}`,
+                    showarrow: true, arrowhead: 7, ax: 40, ay: -30, // Adjusted ax, ay for F
+                    font: {color: '#ef4444', size:10}, bordercolor: '#ef4444', borderwidth:1, bgcolor:'rgba(255,255,255,0.7)'
+                });
+
+
+                // Trace and Annotation for t
+                const y_t_values = coded_values_range.map(t_c => predictRaCoded(0, 0, t_c));
+                const min_y_t = Math.min(...y_t_values);
+                const min_x_t_coded = coded_values_range[y_t_values.indexOf(min_y_t)];
+                const actual_t_at_min = denormalize(min_x_t_coded, normalizationParams.t_center, normalizationParams.t_half_width);
+                traces.push({
+                    x: coded_values_range, y: y_t_values,
+                    mode: 'lines', name: 'Ảnh hưởng của t (V,F ở mức 0)', line: {color: '#22c55e', width: line_width} 
+                });
+                annotations.push({
+                    x: min_x_t_coded, y: min_y_t, xref: 'x', yref: 'y',
+                    text: `t=${actual_t_at_min.toFixed(2)}<br>Ra=${min_y_t.toFixed(4)}`,
+                    showarrow: true, arrowhead: 7, ax: -40, ay: -30, // Adjusted ax, ay for t
+                    font: {color: '#22c55e', size:10}, bordercolor: '#22c55e', borderwidth:1, bgcolor:'rgba(255,255,255,0.7)'
+                });
+                
+                const layout = {
+                    title: { text: 'Ảnh hưởng riêng lẻ của V, F, t đến Ra', font: { size: 18, color: '#1f2937'} },
+                    xaxis: { title: 'Thông số chế độ cắt đã mã hóa', titlefont: {color: '#4b5563'}, tickfont: {color: '#4b5563'} },
+                    yaxis: { title: 'Ra (µm)', titlefont: {color: '#4b5563'}, tickfont: {color: '#4b5563'} },
+                    margin: { t: 60, b: 50, l: 60, r: 180 }, 
+                    legend: {
+                        orientation: "v", 
+                        yanchor: "top", 
+                        y: 1, 
+                        xanchor: "left", 
+                        x: 1.02,
+                        bgcolor: 'rgba(255,255,255,0.8)', 
+                        bordercolor: '#cbd5e1', 
+                        borderwidth: 1,
+                        traceorder: 'normal', 
+                        itemsizing: 'constant',
+                        itemwidth: 30, 
+                    },
+                    autosize: true,
+                    paper_bgcolor: '#f8fafc', 
+                    plot_bgcolor: '#f8fafc', 
+                    annotations: annotations // Add annotations to the layout
+                };
+                try {
+                    Plotly.newPlot(individualEffectsPlotRef.current, traces, layout);
+                } catch (plotError) {
+                    console.error("Lỗi khi vẽ đồ thị ảnh hưởng riêng lẻ:", plotError);
+                    setError("Đã xảy ra lỗi khi cố gắng vẽ đồ thị. Vui lòng kiểm tra Console.");
+                }
+            }, [mathInstance]); 
+
+            useEffect(() => {
+                if (analysisResults) {
+                    drawIndividualEffectsPlot(analysisResults);
+                }
+            }, [analysisResults, drawIndividualEffectsPlot]); 
+
+            const handleAddRow = () => {
+                setExperimentalData([...experimentalData, { id: self.crypto.randomUUID(), V: '', F: '', t: '', Ra: '' }]);
+                setError(''); 
+            };
+
+            const handleRemoveRow = (idToRemove) => {
+                setExperimentalData(experimentalData.filter(row => row.id !== idToRemove));
+                setError('');
+            };
+
+            const handleDataChange = (id, field, value) => {
+                setExperimentalData(experimentalData.map(row =>
+                    row.id === id ? { ...row, [field]: value } : row
+                ));
+                setError('');
+            };
+
+            const loadSampleData = () => {
+                const sampleDataAsStrings = sampleDataFromImageNumeric.map(row => ({
+                    ...row, V: String(row.V), F: String(row.F), t: String(row.t), Ra: String(row.Ra),
+                }));
+                setExperimentalData(JSON.parse(JSON.stringify(sampleDataAsStrings))); 
+                setError(''); setAnalysisResults(null); setInversePredictionResults([]); 
+            };
+            
+            const parseRowValue = (val, fieldName, rowNum) => {
+                if (val === null || String(val).trim() === '') { 
+                    throw new Error(`Giá trị cho ${fieldName} ở dòng ${rowNum} không được để trống.`);
+                }
+                const num = parseFloat(val);
+                if (isNaN(num)) {
+                    throw new Error(`Giá trị không hợp lệ cho ${fieldName} ở dòng ${rowNum}: "${val}". Vui lòng nhập số.`);
+                }
+                return num;
+            };
+
+            const validateData = useCallback(() => {
+                if (experimentalData.length < 10) { 
+                    setError('Vui lòng nhập ít nhất 10 dòng dữ liệu để phân tích (tương ứng 10 hệ số hồi quy).');
+                    return false;
+                }
+                try {
+                    experimentalData.forEach((row, index) => {
+                        parseRowValue(row.V, 'V', index + 1);
+                        parseRowValue(row.F, 'F', index + 1);
+                        parseRowValue(row.t, 't', index + 1);
+                        parseRowValue(row.Ra, 'Ra', index + 1);
+                    });
+                } catch (e) { setError(e.message); return false; } 
+                setError(''); return true; 
+            }, [experimentalData]); 
+
+
+            const performAnalysis = useCallback(async () => {
+                if (!mathInstance) { setError("Math.js chưa sẵn sàng."); return; }
+                if (!validateData()) return; 
+                setIsLoading(true); setAnalysisResults(null); setInversePredictionResults([]); 
+
+                try {
+                    const parsedData = experimentalData.map((row, index) => ({
+                        id: row.id, 
+                        V: parseRowValue(row.V, 'V', index + 1), F: parseRowValue(row.F, 'F', index + 1),
+                        t: parseRowValue(row.t, 't', index + 1), Ra: parseRowValue(row.Ra, 'Ra', index + 1)
+                    }));
+                    const n = parsedData.length; 
+                    const p = 9; 
+
+                    const V_vals = parsedData.map(d => d.V); const F_vals = parsedData.map(d => d.F);
+                    const t_vals = parsedData.map(d => d.t); const Ra_vals = parsedData.map(d => d.Ra);
+
+                    const V_min = Math.min(...V_vals), V_max = Math.max(...V_vals);
+                    const F_min = Math.min(...F_vals), F_max = Math.max(...F_vals);
+                    const t_min = Math.min(...t_vals), t_max = Math.max(...t_vals);
+
+                    const V_center = (V_min + V_max) / 2; const F_center = (F_min + F_max) / 2;
+                    const t_center = (t_min + t_max) / 2;
+                    const V_half_width = (V_max - V_min) / 2 || 1; 
+                    const F_half_width = (F_max - F_min) / 2 || 1;
+                    const t_half_width = (t_max - t_min) / 2 || 1;
+
+                    const normalize = (val, center, half_width) => half_width === 0 ? 0 : (val - center) / half_width;
+                    const denormalize = (val_coded, center, half_width) => val_coded * half_width + center;
+
+                    const X_poly_matrix = []; const y_vector = [];
+                    parsedData.forEach(row => {
+                        const v_c = normalize(row.V, V_center, V_half_width); 
+                        const f_c = normalize(row.F, F_center, F_half_width); 
+                        const t_c = normalize(row.t, t_center, t_half_width); 
+                        X_poly_matrix.push([1, v_c, f_c, t_c, v_c*f_c, v_c*t_c, f_c*t_c, v_c*v_c, f_c*f_c, t_c*t_c]);
+                        y_vector.push(row.Ra);
+                    });
+                    
+                    const X_T = mathInstance.transpose(X_poly_matrix);
+                    const XT_X = mathInstance.multiply(X_T, X_poly_matrix);
+                    const XT_y = mathInstance.multiply(X_T, y_vector);
+                    
+                    let coefficients;
+                    try {
+                        coefficients = mathInstance.lusolve(XT_X, XT_y).valueOf().flat();
+                    } catch (e) {
+                        console.warn("lusolve failed, attempting pseudo-inverse (pinv). This might happen if data is collinear.", e);
+                        const XT_X_inv_pseudo = mathInstance.pinv(XT_X); 
+                        coefficients = mathInstance.multiply(XT_X_inv_pseudo, XT_y).valueOf().flat();
+                    }
+
+                    const Ra_predicted_for_input = X_poly_matrix.map(row_features => mathInstance.multiply(row_features, coefficients));
+                    const y_mean = mathInstance.mean(y_vector);
+                    const ss_tot = mathInstance.sum(y_vector.map(y_i => Math.pow(y_i - y_mean, 2))); 
+                    const ss_res = mathInstance.sum(y_vector.map((y_i, idx) => Math.pow(y_i - Ra_predicted_for_input[idx], 2))); 
+                    const R_squared = ss_tot === 0 ? 1 : 1 - (ss_res / ss_tot); 
+                    
+                    const adj_R_squared = (n - 1) > (n - p - 1) && (n - p - 1) > 0 ? 1 - ((1 - R_squared) * (n - 1) / (n - p - 1)) : R_squared;
+                    const std_err_estimate = (n - p - 1) > 0 ? Math.sqrt(ss_res / (n - p - 1)) : 0;
+
+
+                    let optimal_Ra_from_model = Infinity;
+                    let optimal_params_coded = { V: 0, F: 0, t: 0 };
+                    const grid_points = 20; 
+                    for (let i = 0; i <= grid_points; i++) {
+                        const v_c = -1 + (2 * i / grid_points);
+                        for (let j = 0; j <= grid_points; j++) {
+                            const f_c = -1 + (2 * j / grid_points);
+                            for (let k = 0; k <= grid_points; k++) {
+                                const t_c = -1 + (2 * k / grid_points);
+                                const features = [1, v_c, f_c, t_c, v_c*f_c, v_c*t_c, f_c*t_c, v_c*v_c, f_c*f_c, t_c*t_c];
+                                const pred_Ra = mathInstance.multiply(features, coefficients);
+                                if (pred_Ra < optimal_Ra_from_model) {
+                                    optimal_Ra_from_model = pred_Ra;
+                                    optimal_params_coded = { V: v_c, F: f_c, t: t_c };
+                                }
+                            }
+                        }
+                    }
+                    const optimal_params_actual = {
+                        V: denormalize(optimal_params_coded.V, V_center, V_half_width),
+                        F: denormalize(optimal_params_coded.F, F_center, F_half_width),
+                        t: denormalize(optimal_params_coded.t, t_center, t_half_width),
+                    };
+
+                    const results = {
+                        coefficients, R_squared, adj_R_squared, std_err_estimate,
+                        optimal_params_coded, optimal_params_actual, optimal_Ra_predicted: optimal_Ra_from_model,
+                        predictions: parsedData.map((row, idx) => ({ ...row, Ra_predicted: Ra_predicted_for_input[idx] })),
+                        normalizationParams: {V_min, V_max, F_min, F_max, t_min, t_max, V_center, V_half_width, F_center, F_half_width, t_center, t_half_width}
+                    };
+                    setAnalysisResults(results); 
+
+                } catch (err) {
+                    setError(`Lỗi phân tích: ${err.message}. Kiểm tra Console để biết thêm chi tiết.`);
+                    console.error("Analysis Error:", err);
+                } finally {
+                    setIsLoading(false); 
+                }
+            }, [experimentalData, validateData, mathInstance, drawIndividualEffectsPlot]); 
+            
+            const performInversePrediction = useCallback(() => {
+                if (!analysisResults || !targetRaForInverse) {
+                    setError("Vui lòng thực hiện phân tích trước và nhập giá trị Ra mục tiêu.");
+                    return;
+                }
+                const targetRa = parseFloat(targetRaForInverse);
+                if (isNaN(targetRa)) {
+                    setError("Giá trị Ra mục tiêu không hợp lệ.");
+                    return;
+                }
+
+                setIsInverseLoading(true); 
+                const { coefficients, normalizationParams: norm } = analysisResults;
+                const { V_center, V_half_width, F_center, F_half_width, t_center, t_half_width } = norm;
+                const denormalize = (val_coded, center, half_width) => val_coded * half_width + center;
+
+                const solutions = [];
+                const grid_points_inv = 15; 
+                const tolerance = 0.05 * targetRa; 
+
+                for (let i = 0; i <= grid_points_inv; i++) {
+                    const v_c = -1 + (2 * i / grid_points_inv);
+                    for (let j = 0; j <= grid_points_inv; j++) {
+                        const f_c = -1 + (2 * j / grid_points_inv);
+                        for (let k = 0; k <= grid_points_inv; k++) {
+                            const t_c = -1 + (2 * k / grid_points_inv);
+                            const features = [1, v_c, f_c, t_c, v_c*f_c, v_c*t_c, f_c*t_c, v_c*v_c, f_c*f_c, t_c*t_c];
+                            const pred_Ra = mathInstance.multiply(features, coefficients);
+                            if (Math.abs(pred_Ra - targetRa) <= tolerance) { 
+                                solutions.push({
+                                    V: denormalize(v_c, V_center, V_half_width),
+                                    F: denormalize(f_c, F_center, F_half_width),
+                                    t: denormalize(t_c, t_center, t_half_width),
+                                    Ra_predicted: pred_Ra
+                                });
+                            }
+                        }
+                    }
+                }
+                solutions.sort((a, b) => Math.abs(a.Ra_predicted - targetRa) - Math.abs(b.Ra_predicted - targetRa));
+                setInversePredictionResults(solutions.slice(0, 5)); 
+                setIsInverseLoading(false); 
+                if (solutions.length === 0) {
+                    setError("Không tìm thấy tổ hợp V,F,t nào cho Ra mục tiêu với dung sai hiện tại.");
+                }
+            }, [analysisResults, targetRaForInverse, mathInstance]); 
+
+
+            const formatEquation = (coeffs) => {
+                if (!coeffs || coeffs.length !== 10) return "N/A";
+                const terms = [
+                    coeffs[0].toFixed(4),
+                    `${coeffs[1].toFixed(4)}*X1`, `${coeffs[2].toFixed(4)}*X2`, `${coeffs[3].toFixed(4)}*X3`,
+                    `${coeffs[4].toFixed(4)}*X1*X2`, `${coeffs[5].toFixed(4)}*X1*X3`, `${coeffs[6].toFixed(4)}*X2*X3`,
+                    `${coeffs[7].toFixed(4)}*X1²`, `${coeffs[8].toFixed(4)}*X2²`, `${coeffs[9].toFixed(4)}*X3²`
+                ];
+                let equation = "Ra = " + terms[0];
+                for (let i = 1; i < terms.length; i++) {
+                    if (coeffs[i] >= 0) { equation += ` + ${terms[i]}`; } 
+                    else { equation += ` - ${terms[i].substring(1)}`; } 
+                }
+                return equation;
+            };
+
+            const formatIndividualEquation = (coeffs, varName, normParams) => {
+                if (!coeffs || coeffs.length !== 10) return "N/A";
+                let eq = `Ra(${varName}) = ${coeffs[0].toFixed(4)}`; 
+                if (varName === 'V') {
+                    if (coeffs[1] !== 0) eq += (coeffs[1] > 0 ? " + " : " - ") + `${Math.abs(coeffs[1]).toFixed(4)}*X1`;
+                    if (coeffs[7] !== 0) eq += (coeffs[7] > 0 ? " + " : " - ") + `${Math.abs(coeffs[7]).toFixed(4)}*X1²`;
+                } else if (varName === 'F') {
+                    if (coeffs[2] !== 0) eq += (coeffs[2] > 0 ? " + " : " - ") + `${Math.abs(coeffs[2]).toFixed(4)}*X2`;
+                    if (coeffs[8] !== 0) eq += (coeffs[8] > 0 ? " + " : " - ") + `${Math.abs(coeffs[8]).toFixed(4)}*X2²`;
+                } else if (varName === 't') {
+                    if (coeffs[3] !== 0) eq += (coeffs[3] > 0 ? " + " : " - ") + `${Math.abs(coeffs[3]).toFixed(4)}*X3`;
+                    if (coeffs[9] !== 0) eq += (coeffs[9] > 0 ? " + " : " - ") + `${Math.abs(coeffs[9]).toFixed(4)}*X3²`;
+                }
+                return eq + " (các biến mã hóa khác bằng 0)";
+            };
+            
+            if (!mathInstance) {
+                return <div className="p-8 text-center text-xl font-semibold text-slate-700">Đang tải thư viện Math.js...</div>;
+            }
+
+            return (
+                <div className="container mx-auto p-4 md:p-8 font-sans bg-sky-50 min-h-screen">
+                    <header className="text-center my-8 md:my-12">
+                        <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500">
+                            ỨNG DỤNG XỬ LÝ DỮ LIỆU THỰC NGHIỆM
+                        </h1>
+                        <p className="text-lg text-slate-600 mt-4">Phân tích hồi quy đa thức và tìm kiếm tối ưu</p>
+                    </header>
+
+                    {error && <div className="bg-red-100 border-l-4 border-red-600 text-red-700 p-4 mb-6 rounded-md shadow-lg" role="alert">{error}</div>}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                        <div className="lg:col-span-8 card"> 
+                            <h2 className="text-2xl font-semibold text-slate-700 mb-5 border-b-2 border-sky-300 pb-3">Nhập Dữ liệu Thí nghiệm</h2>
+                            <div className="flex flex-wrap gap-3 mb-5">
+                                <button onClick={handleAddRow} className="btn btn-success">
+                                    <span className="mr-2 text-xl font-bold">+</span> Thêm Dòng
+                                </button>
+                                <button onClick={loadSampleData} className="btn btn-info">
+                                    <span className="mr-2 text-xl">📄</span> Dùng Dữ liệu Mẫu
+                                </button>
+                            </div>
+                            <div className="overflow-x-auto overflow-y-auto max-h-[55vh] custom-scrollbar border border-gray-200 rounded-lg mt-4">
+                                <table className="w-full min-w-[650px] text-sm text-left text-slate-700"> 
+                                    <thead className="text-xs uppercase sticky-header"> 
+                                        <tr>
+                                            <th scope="col" className="px-4 py-3">TT</th>
+                                            <th scope="col" className="px-4 py-3">V (m/ph)</th>
+                                            <th scope="col" className="px-4 py-3">F (mm/vg)</th>
+                                            <th scope="col" className="px-4 py-3">t (mm)</th>
+                                            <th scope="col" className="px-4 py-3">Ra (µm)</th>
+                                            <th scope="col" className="px-4 py-3 text-center">Xóa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {experimentalData.map((row, index) => (
+                                            <tr key={row.id} className="bg-white border-b last:border-b-0 hover:bg-sky-50 transition-colors">
+                                                <td className="px-4 py-2 font-medium text-slate-900">{index + 1}</td> 
+                                                {['V', 'F', 't', 'Ra'].map(field => (
+                                                    <td key={field} className="px-4 py-2">
+                                                        <input type="text" value={row[field]} onChange={(e) => handleDataChange(row.id, field, e.target.value)}
+                                                            className="input-field" placeholder={field} /> 
+                                                    </td>
+                                                ))}
+                                                <td className="px-4 py-2 text-center">
+                                                    <button onClick={() => handleRemoveRow(row.id)} className="text-red-500 hover:text-red-700 font-bold p-1 rounded hover:bg-red-100 transition-colors">✕</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                             {experimentalData.length === 0 && <p className="text-slate-500 mt-4 text-center py-4">Chưa có dữ liệu. Hãy thêm dòng hoặc dùng dữ liệu mẫu.</p>}
+                        </div>
+
+                        <div className="lg:col-span-4 card flex flex-col"> 
+                            <h2 className="text-2xl font-semibold text-slate-700 mb-5 border-b-2 border-sky-300 pb-3">Điều khiển & Trợ giúp</h2>
+                            <button onClick={performAnalysis} disabled={isLoading || experimentalData.length === 0}
+                                className="w-full btn btn-primary mb-4">
+                                <span className="mr-2 text-xl">⚡</span> {isLoading ? 'Đang xử lý...' : 'Thực Hiện Phân Tích'}
+                            </button>
+                             <button onClick={() => setShowHelp(!showHelp)}
+                                className="w-full btn btn-secondary mb-auto">
+                                <span className="mr-2 text-xl">❓</span> {showHelp ? 'Ẩn Trợ Giúp' : 'Hiện Trợ Giúp'}
+                            </button>
+                            {showHelp && (
+                                <div className="mt-4 p-4 bg-sky-100 rounded-lg border border-sky-200 text-sm text-slate-600"> 
+                                    <h3 className="font-semibold text-sky-700 mb-2">Hướng dẫn:</h3>
+                                    <ul className="list-disc list-inside space-y-1">
+                                        <li>Nhập dữ liệu hoặc dùng "Dữ liệu Mẫu".</li>
+                                        <li>Cần ít nhất 10 dòng dữ liệu.</li>
+                                        <li>X1, X2, X3 là V, F, t đã mã hóa.</li>
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {analysisResults && (
+                        <div className="mt-8 card"> 
+                            <h2 className="text-3xl font-semibold text-slate-700 mb-6 border-b-2 border-sky-300 pb-3">Kết Quả Phân Tích</h2>
+
+                            <div className="mb-6">
+                                <h3 className="text-xl font-semibold text-sky-700 mb-3">1. Tính phù hợp của mô hình hồi quy:</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-sky-100 p-4 rounded-lg shadow-inner"> 
+                                    <div><strong className="text-slate-600">R-squared:</strong> <span className="font-bold text-sky-600">{analysisResults.R_squared.toFixed(4)}</span></div>
+                                    <div><strong className="text-slate-600">Adjusted R-squared:</strong> <span className="font-bold text-sky-600">{analysisResults.adj_R_squared.toFixed(4)}</span></div>
+                                    <div><strong className="text-slate-600">Std. Error of Estimate:</strong> <span className="font-bold text-sky-600">{analysisResults.std_err_estimate.toFixed(4)}</span></div>
+                                </div>
+                            </div>
+                             <div className="bg-sky-100 p-4 rounded-lg shadow-inner mb-6"> 
+                                <h3 className="text-xl font-semibold text-sky-700 mb-2">2. Phương trình hồi quy tổng quát:</h3>
+                                <p className="text-sm text-slate-700 break-all">{formatEquation(analysisResults.coefficients)}</p>
+                                <p className="text-xs text-slate-500 mt-1">(X1, X2, X3 là V, F, t đã mã hóa)</p>
+                            </div>
+
+                            <div className="bg-sky-100 p-4 rounded-lg shadow-inner mb-6"> 
+                                <h3 className="text-xl font-semibold text-sky-700 mb-3">3. Thông số tối ưu (dự đoán bởi mô hình):</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    <div><strong className="text-slate-600">V tối ưu (mã hóa):</strong> {analysisResults.optimal_params_coded.V.toFixed(4)}</div>
+                                    <div><strong className="text-slate-600">F tối ưu (mã hóa):</strong> {analysisResults.optimal_params_coded.F.toFixed(4)}</div>
+                                    <div><strong className="text-slate-600">t tối ưu (mã hóa):</strong> {analysisResults.optimal_params_coded.t.toFixed(4)}</div>
+                                    <div className="md:col-span-4 mt-2 md:mt-0"></div>
+                                    <div><strong className="text-slate-600">V tối ưu (thực tế):</strong> {analysisResults.optimal_params_actual.V.toFixed(2)} m/ph</div>
+                                    <div><strong className="text-slate-600">F tối ưu (thực tế):</strong> {analysisResults.optimal_params_actual.F.toFixed(4)} mm/vg</div>
+                                    <div><strong className="text-slate-600">t tối ưu (thực tế):</strong> {analysisResults.optimal_params_actual.t.toFixed(2)} mm</div>
+                                    <div className="font-bold text-sky-600"><strong className="text-gray-600">Ra dự đoán tối ưu:</strong> {analysisResults.optimal_Ra_predicted.toFixed(4)} µm</div>
+                                </div>
+                            </div>
+
+                             <div className="bg-sky-100 p-4 rounded-lg shadow-inner mb-6"> 
+                               <h3 className="text-xl font-semibold text-sky-700 mb-3">4. Các hệ số hồi quy chi tiết:</h3>
+                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-2 text-sm">
+                                   {analysisResults.coefficients.map((coeff, index) => {
+                                       const terms = ['b₀ (Intercept)', 'b₁ (X1)', 'b₂ (X2)', 'b₃ (X3)', 'b₄ (X1X2)', 'b₅ (X1X3)', 'b₆ (X2X3)', 'b₇ (X1²)', 'b₈ (X2²)', 'b₉ (X3²)'];
+                                       return <div key={index} className="text-slate-700"><strong className="text-slate-500" dangerouslySetInnerHTML={{ __html: terms[index].replace(/(\d+)/g, '<sub>$1</sub>').replace('Xsub', 'X<sub>') }}></strong>: {coeff.toFixed(4)}</div>;
+                                   })}
+                               </div>
+                           </div>
+
+                            <div className="bg-sky-100 p-4 rounded-lg shadow-inner mb-6"> 
+                                <h3 className="text-xl font-semibold text-sky-700 mb-3">5. Phương trình ảnh hưởng riêng lẻ:</h3>
+                                <div className="space-y-2 text-sm text-slate-600">
+                                    <p>{formatIndividualEquation(analysisResults.coefficients, 'V', analysisResults.normalizationParams)}</p>
+                                    <p>{formatIndividualEquation(analysisResults.coefficients, 'F', analysisResults.normalizationParams)}</p>
+                                    <p>{formatIndividualEquation(analysisResults.coefficients, 't', analysisResults.normalizationParams)}</p>
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <h3 className="text-xl font-semibold text-sky-700 mb-3">6. Đồ thị ảnh hưởng riêng lẻ của V, F, t đến Ra:</h3>
+                                <div ref={individualEffectsPlotRef} className="plot-container bg-slate-50 rounded-lg shadow-inner p-2 border border-gray-200"></div> 
+                            </div>
+
+                            <div className="card mt-8 border border-sky-200"> 
+                                 <h3 className="text-xl font-semibold text-sky-700 mb-4">7. Dự báo ngược V, F, t từ Ra mục tiêu:</h3>
+                                 <div className="flex items-center gap-4 mb-4">
+                                     <input
+                                         type="number" step="any" value={targetRaForInverse}
+                                         onChange={(e) => setTargetRaForInverse(e.target.value)}
+                                         placeholder="Nhập Ra mục tiêu (ví dụ: 0.5)"
+                                         className="flex-grow input-field" 
+                                     />
+                                     <button onClick={performInversePrediction} disabled={isInverseLoading || !analysisResults}
+                                         className="btn btn-primary bg-indigo-600 hover:bg-indigo-700"> 
+                                         {isInverseLoading ? "Đang dự báo..." : "Dự báo ngược"}
+                                     </button>
+                                 </div>
+                                 {inversePredictionResults.length > 0 && (
+                                     <div className="mt-4">
+                                         <h4 className="font-semibold text-slate-600 mb-2">Các tổ hợp (V,F,t) gợi ý (tối đa 5):</h4>
+                                         <ul className="list-disc list-inside bg-sky-100 p-3 rounded-md border border-sky-200"> 
+                                             {inversePredictionResults.map((sol, idx) => (
+                                                 <li key={idx} className="text-sm text-slate-700 mb-1">
+                                                     V: {sol.V.toFixed(2)}, F: {sol.F.toFixed(4)}, t: {sol.t.toFixed(2)} → Ra dự đoán: {sol.Ra_predicted.toFixed(4)}
+                                                 </li>
+                                             ))}
+                                         </ul>
+                                     </div>
+                                 )}
+                             </div>
+
+                            <h3 className="text-xl font-semibold text-slate-700 mb-3 mt-8">8. Bảng so sánh kết quả:</h3>
+                            <div className="overflow-x-auto shadow-md rounded-lg custom-scrollbar border border-gray-200">
+                                <table className="w-full text-sm text-left text-slate-700"> 
+                                    <thead className="text-xs uppercase sticky-header"> 
+                                        <tr>
+                                            <th className="px-4 py-3">TT</th>
+                                            <th className="px-4 py-3">V (thực tế)</th>
+                                            <th className="px-4 py-3">F (thực tế)</th>
+                                            <th className="px-4 py-3">t (thực tế)</th>
+                                            <th className="px-4 py-3">Ra (thực tế)</th>
+                                            <th className="px-4 py-3">Ra (dự đoán)</th>
+                                            <th className="px-4 py-3">Chênh lệch</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {analysisResults.predictions.map((row, index) => (
+                                            <tr key={row.id} className="bg-white border-b last:border-b-0 hover:bg-sky-50 transition-colors">
+                                                <td className="px-4 py-2 font-medium text-slate-900">{index + 1}</td> 
+                                                <td className="px-4 py-2">{Number(row.V).toFixed(2)}</td>
+                                                <td className="px-4 py-2">{Number(row.F).toFixed(4)}</td>
+                                                <td className="px-4 py-2">{Number(row.t).toFixed(2)}</td>
+                                                <td className="px-4 py-2">{Number(row.Ra).toFixed(4)}</td>
+                                                <td className="px-4 py-2">{Number(row.Ra_predicted).toFixed(4)}</td>
+                                                <td className="px-4 py-2">{(Math.abs(Number(row.Ra) - Number(row.Ra_predicted))).toFixed(4)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                    <footer className="text-center mt-12 py-6 border-t border-sky-200">
+                        <p className="text-sm text-slate-600">
+                            Phát triển bởi AI. Dành cho mục đích minh họa và xử lý dữ liệu thực nghiệm.
+                        </p>
+                         <p className="text-xs text-slate-500 mt-1">
+                            Sử dụng React (thông qua Babel), TailwindCSS, Math.js, Plotly.js.
+                        </p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const rootElement = document.getElementById('app');
+        if (rootElement) {
+            const root = ReactDOM.createRoot(rootElement);
+            root.render(<App />);
+        } else {
+            console.error("Không tìm thấy phần tử gốc 'app' trong HTML.");
+        }
+    </script>
+</body>
+</html>
